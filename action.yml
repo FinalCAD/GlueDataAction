@@ -34,6 +34,9 @@ inputs:
   config-file-prefix:
     description: 'Sub path for config file'
     default: 'configuration'
+  pr-number:
+    description: 'Pull rerquest number, empty fo push'
+    default: ''
 runs:
   using: 'composite'
   steps:
@@ -101,18 +104,21 @@ runs:
         set -e
         cue vet ./terragrunt/glue-job.cue ./terragrunt/glue-job.yaml
         cue vet ./terragrunt/glue-crawler.cue ./terragrunt/glue-crawler.yaml
-
     #Plan terragrunt
     - name: Terragrunt plan
+      if: inputs.pr-number != ""
       shell: bash
       run: |
         cd ./terragrunt/${{ inputs.environment }}/${{ inputs.region-friendly }}/glue
-        terragrunt plan
+        terraform init
+        terragrunt plan -out plan
+        terragrunt show plan
 
     #Apply terragrunt
     - name: Terragrunt apply
-      if: github.event_name != 'pull_request'
+      if: inputs.pr-number == ""
       shell: bash
       run: |
         cd ./terragrunt/${{ inputs.environment }}/${{ inputs.region-friendly }}/glue
+        terraform init
         terragrunt apply -auto-approve
