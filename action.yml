@@ -113,7 +113,7 @@ runs:
         cd ./terragrunt/${{ inputs.environment }}/${{ inputs.region-friendly }}/glue
         terraform init
         terragrunt plan -out plan
-        terragrunt show -json plan > plan.txt
+        terragrunt show plan > ${{ github.workspace }}/plan.txt
       continue-on-error: true
     # Comment on pr
     - uses: actions/github-script@v6
@@ -123,7 +123,7 @@ runs:
       with:
         script: |
           const fs = require('fs')
-          const data = fs.readFileSync('plan.txt')
+          const data = fs.readFileSync('${{ github.workspace }}/plan.txt')
           const output = `#### Terraform Plan : \`${{ steps.plan.outcome }}\`
           <details><summary>Show Plan</summary>
           \`\`\`terraform\n
