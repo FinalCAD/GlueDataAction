@@ -1,0 +1,94 @@
+name: 'GlueDataAction'
+description: 'Create glue job & crawler'
+inputs:
+  aws-role:
+    description: 'Aws role to apply changes'
+    required: true
+  aws-region:
+    description: 'Aws region'
+    default: 'eu-central-1'
+  terraform-version:
+    description: 'Terraform version to install.'
+    default: 'latest'
+  terragrunt-version:
+    description: 'Terragrunt version to install.'
+    default: 'latest'
+  terraform-data-one-repo:
+    description: 'terraform data one repository'
+    default: 'FinalCAD/terraform-data-one'
+  terraform-data-one-ref:
+    descrition: 'Ref to use for pulling repo terraform-data-one'
+    default: 'master'
+  gitub-token:
+    description: 'Github token to pull package to avoid limit rate'
+    default: ''
+  github-ssh:
+    description: 'Github ssh key to pull terragrunt from github api'
+    required: true
+  environment:
+    description: 'Finalcad envrionment: production, staging, sandbox'
+    require: true
+  region-friendly:
+    description: 'Finalcad region: frankfurt or tokyo'
+    default: 'frankfurt'
+  config-file-prefix:
+    description: 'Sub path for config file'
+    default: 'configuration'
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/checkout@v3
+      with:
+        path: 'data'
+    - uses: actions/checkout@v3
+      with:
+        ssh-key: ${{ inputs.github-ssh }}
+        repository: ${{ inputs.terraform-data-one-repo }}
+        ref: ${{ inputs.terraform-data-one-ref }}
+        path: 'terragrunt'
+    # Setup ssh key
+    - name: Add ssh key
+      shell: bash
+      run: |
+          mkdir -p ~/.ssh
+          echo "${{ inputs.github-ssh }}" > ~/.ssh/id_rsa
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_rsa ~/.ssh/known_hosts
+          eval $(ssh-agent)
+          ssh-add ~/.ssh/id_rsa
+    # Setup terraform
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: ${{ inputs.terraform-version }}
+        terraform_wrapper: false
+    # Setup terragrunt
+    - name: Terragrunt Binary Installer Action
+      uses: autero1/action-terragrunt@v1.3.0
+      if: inputs.terragrunt-version != 'disabled'
+      with:
+        terragrunt_version: ${{ inputs.terragrunt-version }}
+        token: ${{ inputs.gitub-token }}
+    # Copy glue configuration file
+    - name: Glues files copy
+      shell: bash
+      run: |
+        set -e
+        cp ./data/${{ inputs.config-file-prefix }}/${{ inputs.environment }}/glue-crawler.yaml ./terragrunt/glue-crawler.yaml
+        cp ./data/${{ inputs.config-file-prefix }}/${{ inputs.environment }}/glue-job.yaml ./terragrunt/glue-job.yaml
+    # Configure aws credentials
+    - name: Configure AWS credentials for security
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-region: ${{ inputs.aws-region }}
+        role-to-assume: ${{ inputs.aws-role }}
+        role-session-name: OIDCSession
+    # Apply terragrunt
+    # - name: Terragrunt apply
+    #   shell: bash
+    #   run: |
+    #     cd ./terragrunt/${{ inputs.environment }}/${{ inputs.region-friendly }}/appsecrets
+    #     terragrunt init -backend-config=key=appsecrets/${{ inputs.environment }}/${{ inputs.region-friendly }}/${{ inputs.app-name }}/terraform.tfstate
+    #     export TF_VAR_application_id=${{ inputs.app-name }}
+    #     export TF_VAR_region_finalcad=${{ inputs.region-friendly }}
+    #     terragrunt apply -auto-approve
