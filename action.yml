@@ -106,7 +106,7 @@ runs:
         cue vet ./terragrunt/glue-crawler.cue ./terragrunt/glue-crawler.yaml
     #Plan terragrunt
     - name: Terragrunt plan
-      if: inputs.pr-number != ""
+      if: inputs.pr-number != ''
       shell: bash
       run: |
         cd ./terragrunt/${{ inputs.environment }}/${{ inputs.region-friendly }}/glue
@@ -116,7 +116,7 @@ runs:
 
     #Apply terragrunt
     - name: Terragrunt apply
-      if: inputs.pr-number == ""
+      if: inputs.pr-number == ''
       shell: bash
       run: |
         cd ./terragrunt/${{ inputs.environment }}/${{ inputs.region-friendly }}/glue
